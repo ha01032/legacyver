@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+   
+  
+<mapper namespace="dao.FoodMapper"> 
+ 	<insert id="foodInsert" parameterType="com.java.food.dto.FoodDto">
+ 		insert into food(food_code,food_name,food_addr,food_area,food_phone,food_kind,food_menu,food_time,food_break,food_intro,food_date,food_read,food_status,member_code) values ('FOOD'||LPAD(SEQFOOD.nextval,4,0), #{foodName}, #{foodAddr}, #{foodArea}, #{foodPhone}, #{foodKind}, #{foodMenu}, #{foodTime}, #{foodBreak}, #{foodIntro}, #{foodDate}, #{foodRead}, #{foodStatus}, #{memberCode})
+ 	</insert> 
+ 	
+ 	<select id="foodMax" resultType="String">
+ 		select nvl(max(food_code),0) from food
+ 	</select>
+ 	
+ 	<select id="foodRead" parameterType="String" resultType="com.java.food.dto.FoodDto">
+ 		select * from food where food_code = #{foodCode}
+ 	</select>
+ 	
+ 	<delete id="foodDelete" parameterType="String">
+ 		delete from food where food_code = #{foodCode}
+ 	</delete>
+ 	
+ 	<update id="foodUpadte" parameterType="com.java.food.dto.FoodDto">
+ 		update food set food_Name=#{foodName}, food_addr=#{foodAddr},food_area=#{foodArea},food_phone=#{foodPhone},food_kind=#{foodKind},food_menu=#{foodMenu},food_time=#{foodTime},food_break=#{foodBreak},food_intro=#{foodIntro},food_date=#{foodDate},food_status=#{foodStatus} where food_code=#{foodCode}
+ 	</update> 	
+ 	
+ 	<update id="foodReadUpdate" parameterType="String">
+ 		<![CDATA[
+		update food set food_read=food_read+1 where food_code=#{foodCode}
+		]]>
+ 	</update>
+ 	
+ 	<select id="foodReviewCount" parameterType="String" resultType="com.java.review.dto.ReviewCountDto">
+ 	<![CDATA[
+		select a.good, b.soso, c.bad, d.whole
+		FROM (select count(*) as good from review where  food_code=#{foodCode} AND review_score = 5) a,
+		(select count(*) as soso from review where food_code=#{foodCode} AND review_score = 3) b,
+		(select count(*) as bad from review where food_code=#{foodCode} AND review_score = 1) c,
+		(select count(*) as whole from review where food_code=#{foodCode}) d
+	]]> 
+	</select>
+	
+	<select id="foodReviewList" parameterType="String" resultType="com.java.food.dto.FoodReviewDto">
+		<![CDATA[
+			SELECT REVIEW.REVIEW_CODE, REVIEW.FOOD_CODE, REVIEW.MEMBER_CODE, MEMBER.MEMBER_NAME, REVIEW.REVIEW_DATE, REVIEW.REVIEW_CONT, REVIEW.REVIEW_SCORE, IMAGE.REFER_CODE, LISTAGG(IMAGE_NAME, ',')WITHIN GROUP (ORDER BY IMAGE_NAME) AS IMAGE_NAME
+			FROM REVIEW, IMAGE, MEMBER
+			WHERE REVIEW.REVIEW_CODE = IMAGE.REFER_CODE(+) AND review.MEMBER_CODE = member.member_code  AND FOOD_CODE = #{foodCode}
+			GROUP BY REVIEW.REVIEW_CODE,  REVIEW.FOOD_CODE, review.member_code, MEMBER.MEMBER_NAME, REVIEW.REVIEW_DATE, REVIEW.REVIEW_CONT, REVIEW.REVIEW_SCORE, IMAGE.REFER_CODE
+			ORDER BY REVIEW_CODE DESC
+		]]> 			
+	</select>
+	
+	<select id="foodReviewListScore" parameterType="java.util.HashMap" resultType="com.java.food.dto.FoodReviewDto">
+		<![CDATA[
+			SELECT REVIEW.REVIEW_CODE, REVIEW.FOOD_CODE, REVIEW.MEMBER_CODE, MEMBER.MEMBER_NAME, REVIEW.REVIEW_DATE, REVIEW.REVIEW_CONT, REVIEW.REVIEW_SCORE, IMAGE.REFER_CODE, LISTAGG(IMAGE_NAME, ',')WITHIN GROUP (ORDER BY IMAGE_NAME) AS IMAGE_NAME
+			FROM REVIEW, IMAGE, MEMBER
+			WHERE REVIEW_CODE = REFER_CODE(+) AND review.MEMBER_CODE = member.member_code  AND FOOD_CODE = #{foodCode} AND REVIEW.REVIEW_SCORE = ${selScore}
+			GROUP BY REVIEW.REVIEW_CODE,  REVIEW.FOOD_CODE, review.member_code, MEMBER.MEMBER_NAME, REVIEW.REVIEW_DATE, REVIEW.REVIEW_CONT, REVIEW.REVIEW_SCORE, IMAGE.REFER_CODE
+			ORDER BY REVIEW_CODE DESC
+		]]> 
+	</select>
+	
+	<select id="foodReviewAvg" parameterType="String" resultType="float">
+	<![CDATA[	
+		select ROUND(nvl(AVG(review_score),0),2) from review where food_code=#{foodCode}
+	]]>	
+	</select>
+	
+	<select id="foodCouponList" parameterType="String" resultType="com.java.coupon.dto.CouponDto">
+	<![CDATA[
+		SELECT B.coupon_code, B.food_code, B.coupon_name, B.coupon_costori, B.coupon_salerate, B.coupon_costsale, B.coupon_intro, 
+		TO_CHAR(B.coupon_startdate, 'YYYY-MM-DD') AS coupon_startdate, TO_CHAR(B.coupon_enddate, 'YYYY-MM-DD') AS coupon_enddate, image_name, image_path
+		FROM (SELECT ROWNUM as num, A.* FROM (select * from coupon, image WHERE coupon_code = refer_code AND coupon_enddate >= sysdate AND coupon_status = 'Y' AND food_code = #{foodCode} ORDER BY coupon_code DESC) A) B
+	]]>
+	</select>
+	
+	<select id="adminfoodList" resultType="com.java.food.dto.FoodDto">
+		select * from food
+	</select>
+	
+	<select id="foodFavorite" parameterType="String" resultType="int">
+		select count(food_code) from favorite where food_code=#{foodCode}
+	</select>
+</mapper>

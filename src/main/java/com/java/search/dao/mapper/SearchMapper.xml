@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="dao.mapper.SearchMapper">
+
+	<select id="couponCount" parameterType="String" resultType="int">
+		SELECT count(*) FROM coupon, food 
+			WHERE coupon.food_code = food.food_code
+			AND (
+			coupon_name like ('%'||#{keyword}||'%')
+			or
+			food_name like ('%'||#{keyword}||'%')
+			or
+			food_kind like ('%'||#{keyword}||'%')
+			or
+			food_menu like ('%'||#{keyword}||'%')
+			or
+			food_tag like ('%'||#{keyword}||'%')
+			)
+	</select>
+	
+	<select id="couponList" parameterType="String" resultType="com.java.search.dto.SearchCouponDto">
+		SELECT 
+			*
+		FROM coupon, food, image 
+			WHERE coupon.food_code = food.food_code
+  			AND coupon.coupon_code = image.refer_code(+)
+			AND (
+			coupon_name like ('%'||#{keyword}||'%')
+			or
+			food_name like ('%'||#{keyword}||'%')
+			or
+			food_kind like ('%'||#{keyword}||'%')
+			or
+			food_menu like ('%'||#{keyword}||'%')
+			or
+			food_tag like ('%'||#{keyword}||'%')
+			)
+			ORDER BY COUPON_SALERATE DESC
+	</select>
+	
+	
+	<select id="tagListCount" parameterType="java.util.Map" resultType="int">
+			SELECT count(*) FROM 
+			(SELECT ROWNUM rnum, A.*, image.* FROM
+			(SELECT * FROM food
+				<if test="tagType.equals('addr')">
+				WHERE food_addr like ('%'||#{tagValue}||'%')
+				</if>
+				<if test="tagType.equals('menu')">
+				WHERE food_menu like ('%'||#{tagValue}||'%')
+				</if>
+				<if test="tagType.equals('kind')">
+				WHERE food_kind like ('%'||#{tagValue}||'%')
+				</if>
+				<if test="tagType.equals('area')">
+				WHERE food_area like ('%'||#{tagValue}||'%')
+				</if>
+				<if test="tagType.equals('tag')">
+				WHERE food_tag like ('%'||#{tagValue}||'%')
+				</if>
+			ORDER BY food_read DESC)A, image
+			WHERE A.food_code = image.refer_code(+))
+	</select>
+	
+	<select id="tagList" parameterType="java.util.Map" resultType="com.java.search.dto.SearchFoodDto">
+			SELECT * FROM 
+			(SELECT ROWNUM rnum, A.*, image.* FROM
+			(SELECT * FROM food
+				<if test="tagType.equals('addr')">
+				WHERE food_addr like ('%'||#{tagValue}||'%')
+				</if>
+				<if test="tagType.equals('menu')">
+				WHERE food_menu like ('%'||#{tagValue}||'%')
+				</if>
+				<if test="tagType.equals('kind')">
+				WHERE food_kind like ('%'||#{tagValue}||'%')
+				</if>
+				<if test="tagType.equals('area')">
+				WHERE food_area like ('%'||#{tagValue}||'%')
+				</if>
+				<if test="tagType.equals('tag')">
+				WHERE food_tag like ('%'||#{tagValue}||'%')
+				</if>
+			ORDER BY food_read DESC)A, image
+			WHERE A.food_code = image.refer_code(+))
+		<![CDATA[
+			WHERE rnum >= #{startRow} and rnum <= #{endRow}
+		]]>
+	</select>
+	
+	<select id="getReviewScore" resultType="com.java.search.dto.SearchFoodDto" parameterType="String">
+		SELECT AVG(review_score) as reviewScore FROM review WHERE FOOD_CODE = #{foodCode} GROUP BY FOOD_CODE
+	</select>
+	
+	<select id="keywordList" parameterType="String" resultType="com.java.search.dto.SearchFoodDto">
+		SELECT food_name FROM
+		(SELECT rownum rn, B.food_name food_name FROM 
+		(SELECT food_name from food WHERE food_name like '%'||#{keyword}||'%'
+		ORDER BY (CASE
+			WHEN food_name like #{keyword}||'%' THEN 0
+			WHEN food_name like '%'||#{keyword} THEN 1
+			ELSE 3 END) ASC
+		) B)
+		<![CDATA[
+			WHERE rn >= 1 AND rn <= 5
+		]]>
+	</select>
+	
+	<select id="searchCount" parameterType="java.util.Map" resultType="int">
+	SELECT count(*) FROM food WHERE food_code IN(
+		(SELECT distinct food_code from (
+		SELECT food_code from food where food_name like ('%'||#{keyword}||'%')
+		union all
+		SELECT food_code from food where food_menu like ('%'||#{keyword}||'%')
+		union all
+		SELECT food_code from food where food_kind like ('%'||#{keyword}||'%')
+		union all
+		SELECT food_code from food where food_addr like ('%'||#{keyword}||'%')
+		union all
+		SELECT food_code from food where food_tag like ('%'||#{keyword}||'%')
+		)))
+		<if test="addrArr[0] != ''">
+			<foreach collection="addrArr" item="addr" index="index" open=" and (" close=")" separator=" or">
+				food_addr LIKE ('%'||#{addr}||'%')
+			</foreach>
+		</if>
+		<if test="kindArr[0] != ''">
+			<foreach collection="kindArr" item="kind" index="index" open=" and (" close=")" separator=" or">
+				food_kind LIKE (#{kind}||'%')
+			</foreach>
+		</if>
+	</select>
+	
+	<select id="searchResult" parameterType="java.util.Map" resultType="com.java.search.dto.SearchFoodDto">
+			SELECT * FROM 
+			(SELECT ROWNUM rnum, A.* FROM
+			(SELECT food_code, food_name, food_addr, food_area, food_phone, food_kind, food_read, food_menu, image_name, image_path, review_food, nvl(review_score,0) review_score, nvl(review_count,0) review_count FROM 
+			(SELECT * FROM food WHERE food_code in(
+			(SELECT distinct food_code from (
+			SELECT food_code from food where food_name like ('%'||#{keyword}||'%')
+			union all
+			SELECT food_code from food where food_menu like ('%'||#{keyword}||'%')
+			union all
+			SELECT food_code from food where food_kind like ('%'||#{keyword}||'%')
+			union all
+			SELECT food_code from food where food_addr like ('%'||#{keyword}||'%')
+			union all
+			SELECT food_code from food where food_tag like ('%'||#{keyword}||'%')
+			)))
+			order by case 
+			when food_name like ('%'||#{keyword}||'%') then 0
+			when food_menu like ('%'||#{keyword}||'%') then 1
+			when food_kind like ('%'||#{keyword}||'%') then 2
+			when food_tag like ('%'||#{keyword}||'%') then 3
+			else 4 end asc) fo, image, (SELECT food_code review_food, NVL(AVG(review_score),0) review_score, nvl(COUNT(review_code),0) review_count FROM review GROUP BY food_code) rv
+			WHERE fo.food_code = image.refer_code(+)
+			AND fo.food_code = rv.review_food(+)
+			<if test="addrArr[0] != ''">
+				<foreach collection="addrArr" item="addr" index="index" open=" and (" close=")" separator=" or">
+					food_addr LIKE ('%'||#{addr}||'%')
+				</foreach>
+			</if>
+			<if test="kindArr[0] != ''">
+				<foreach collection="kindArr" item="kind" index="index" open=" and (" close=")" separator=" or">
+					food_kind LIKE (#{kind}||'%')
+				</foreach>
+			</if>
+			<if test="orderType == '조회수'">
+				ORDER BY food_read DESC
+			</if>
+			<if test="orderType == '평점'">
+				ORDER BY review_score DESC
+			</if>
+			)A)
+		<![CDATA[
+			WHERE rnum >=#{startRow} and rnum <=#{endRow}
+		]]>
+	</select>
+	
+	<select id="popularList" resultType="com.java.search.dto.SearchFoodDto">
+			SELECT * FROM 
+			(SELECT ROWNUM rnum, A.* FROM
+			(SELECT food_code, food_name, food_addr, food_area, food_phone, food_kind, food_read, food_menu, image_name, image_path, review_food, nvl(review_score,0) review_score, nvl(review_count,0) review_count FROM 
+			 food, image, (SELECT food_code review_food, NVL(AVG(review_score),0) review_score, nvl(COUNT(review_code),0) review_count FROM review GROUP BY food_code) rv
+			WHERE food.food_code = image.refer_code(+)
+			AND food.food_code = rv.review_food(+)
+			ORDER BY food_read DESC
+			)A)
+		<![CDATA[
+			WHERE rnum >=1 and rnum <=4
+		]]>
+	</select>
+	
+	<select id="countFood" resultType="int">
+		SELECT count(*) FROM FOOD
+	</select>
+	
+	<select id="countReview" resultType="int">
+		SELECT count(*) FROM REVIEW
+	</select>
+	
+
+</mapper>

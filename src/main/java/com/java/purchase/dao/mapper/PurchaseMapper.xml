@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    
+<mapper namespace="dao.PurchaseMapper">
+	<resultMap type="com.java.purchase.dto.PurchaseDto" id="PurchaseDto" />
+	
+	<resultMap type="com.java.coupon.dto.CouponDto" id="CouponDto">
+		<result column="coupon_code" property="couponCode"/>
+		<result column="food_code" property="foodCode"/>
+		<result column="coupon_name" property="couponName"/>
+		<result column="coupon_startdate" property="couponStartdate"/>
+		<result column="coupon_enddate" property="couponEnddate"/>
+		<result column="coupon_intro" property="couponIntro"/>
+		<result column="coupon_costori" property="couponCostori"/>
+		<result column="coupon_costsale" property="couponCostsale"/>
+		<result column="coupon_salerate" property="couponSalerate"/>
+		
+		<result column="image_code" property="imageCode"/>
+		<result column="image_name" property="imageName"/>
+		<result column="image_size" property="imageSize"/>
+		<result column="image_path" property="imagePath"/>
+		
+		<result column="food_name" property="foodName"/>
+	</resultMap>
+	
+	<resultMap type="com.java.member.dto.MemberDto" id="MemberDto"/>
+	<resultMap type="com.java.purchase.dto.PurchaseListDto" id="PurchaseListDto"/>
+	
+	<!-- 구매전 회원정보 불러오기 -->
+	<select id="memberSelect"  resultMap="MemberDto">
+		SELECT * FROM member WHERE member_code = #{memberCode}
+	</select>
+	
+	<!-- 구매완료 -->
+	<insert id="purchaseInsertOk" parameterType="java.util.Map">
+		<selectKey keyProperty="purchaseCode" resultType="String" order="BEFORE">
+			SELECT 'pc'||LPAD(seqpurchase.nextval,4,0) As purchase_code from dual
+		</selectKey>
+		INSERT INTO purchase(purchase_code, coupon_code, member_code, purchase_phone, purchase_date, purchase_cost, purchase_status)
+		VALUES('pc'||LPAD(seqpurchase.CURRVAL,4,0),#{couponCode}, #{memberCode}, #{purchasePhone}, SYSDATE, #{purchaseCost}, 'Y')
+	</insert>
+	<!--구매 완료 후 정보 출력 -->
+	<select id="purchaseCouponSelect" parameterType="String" resultMap="CouponDto">
+		SELECT coupon_code, food_code, coupon_name, TO_CHAR(coupon_startdate, 'YYYY-MM-DD') as coupon_startdate, TO_CHAR(coupon_enddate, 'YYYY-MM-DD') as coupon_enddate, coupon_costori, coupon_salerate, coupon_costsale, coupon_intro
+		FROM coupon WHERE coupon_code = (SELECT coupon_code FROM purchase WHERE purchase_code = #{purchaseCode})
+	</select>
+	
+	<!-- 해당 회원의 구매내역 카운트 -->
+	<select id="getCount" parameterType="String" resultType="int">
+		SELECT NVL(COUNT(*),0) FROM purchase WHERE  member_code = #{memberCode}
+	</select>
+	
+	<!-- 구매내역(마이페이지) -->
+	<select id="purchaseList" parameterType="java.util.Map" resultMap="PurchaseListDto">
+		<![CDATA[
+		SELECT * FROM
+    	(SELECT ROWNUM AS numb, A.* FROM (
+    	SELECT o coupon_code, coupon_name, coupon_startdate, coupon_enddate, coupon_costori, coupon_costsale, purchase_date, purchase_phone, purchase_code, purchase_status, image_name, image_path, image_code FROM(
+        SELECT purchase.coupon_code o, purchase.*, coupon.*, image.* FROM purchase 
+    	INNER JOIN (coupon INNER JOIN image ON image.refer_code = coupon.coupon_code) ON purchase.coupon_code = coupon.coupon_code)
+    	WHERE  member_code = #{memberCode} ORDER BY purchase_date DESC) A) B 
+		]]>
+	</select>
+	
+	<!-- 구매내역 전체 카운트 -->
+	<select id="getCountAll" parameterType="String" resultType="int">
+		SELECT COUNT(*) FROM purchase WHERE purchase_status = 'Y'
+	</select>
+	
+	<!-- 구매내역(관리자) -->
+	<select id="purchaseListAll" resultMap="PurchaseListDto">
+		<![CDATA[
+		SELECT * FROM
+    	(SELECT ROWNUM AS numb, A.* FROM (
+    	SELECT o coupon_code, coupon_name, coupon_costori, coupon_costsale, purchase_code, member_code, purchase_date, purchase_phone, purchase_status, image_name, image_path, image_code FROM(
+        SELECT purchase.coupon_code o, purchase.*, coupon.*, image.* FROM purchase 
+    	INNER JOIN (coupon INNER JOIN image ON image.refer_code = coupon.coupon_code) ON purchase.coupon_code = coupon.coupon_code)) A) B
+		]]>
+	</select>
+	
+	<!-- 구매 상세 불러오기 -->
+	<select id="purchaseDeleteSelect" parameterType="String" resultMap="PurchaseListDto">
+		SELECT o coupon_code, coupon_name, coupon_costori, coupon_costsale, purchase_code, purchase_status, member_code, purchase_date, purchase_phone, image_name, image_path, image_code FROM(
+        SELECT purchase.coupon_code o, purchase.*, coupon.*, image.* FROM purchase 
+    	INNER JOIN (coupon INNER JOIN image ON image.refer_code = coupon.coupon_code) ON purchase.coupon_code = coupon.coupon_code)
+    	WHERE purchase_code = #{purchaseCode}
+	</select>
+	
+	<!-- 구매 취소 -->
+	<update id="purchaseDelete" parameterType="String">
+		UPDATE purchase SET purchase_status='N' WHERE purchase_code = #{purchaseCode}
+	</update>
+	
+</mapper>
